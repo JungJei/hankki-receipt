@@ -421,12 +421,91 @@ function MealCard({
   );
 }
 
+function localDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function MealCalendar({
+  meals, viewDate, today, calYear, calMonth, onSelectDate, onPrevMonth, onNextMonth,
+}: {
+  meals: MealRecord[]; viewDate: string; today: string;
+  calYear: number; calMonth: number;
+  onSelectDate: (d: string) => void; onPrevMonth: () => void; onNextMonth: () => void;
+}) {
+  const monthPrefix = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
+  const mealCounts: Record<string, number> = {};
+  for (const m of meals) {
+    if (m.date.startsWith(monthPrefix)) mealCounts[m.date] = (mealCounts[m.date] || 0) + 1;
+  }
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const todayD = new Date(today + 'T00:00:00');
+  const isCurrentMonth = calYear === todayD.getFullYear() && calMonth === todayD.getMonth();
+
+  return (
+    <div className="bg-white rounded-2xl shadow-receipt px-4 pt-4 pb-3 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={onPrevMonth} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-semibold text-gray-800">{calYear}년 {calMonth + 1}월</span>
+        <button onClick={onNextMonth} disabled={isCurrentMonth}
+          className="p-1 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors disabled:opacity-30">
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 mb-1">
+        {['월','화','수','목','금','토','일'].map((d) => (
+          <div key={d} className="text-center text-xs text-gray-400 py-0.5">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {cells.map((day, i) => {
+          if (!day) return <div key={i} />;
+          const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const count = mealCounts[dateStr] || 0;
+          const isSelected = dateStr === viewDate;
+          const isToday = dateStr === today;
+          const isFuture = dateStr > today;
+          return (
+            <button key={i} onClick={() => !isFuture && onSelectDate(dateStr)} disabled={isFuture}
+              className={`flex flex-col items-center py-1.5 rounded-xl transition-colors ${
+                isSelected ? 'bg-brand-500' : isToday ? 'bg-brand-50' : isFuture ? '' : 'hover:bg-gray-50'
+              } ${isFuture ? 'opacity-25' : ''}`}
+            >
+              <span className={`text-xs font-medium leading-none ${
+                isSelected ? 'text-white' : isToday ? 'text-brand-600' : 'text-gray-700'
+              }`}>{day}</span>
+              <div className="h-2 flex items-center justify-center mt-0.5">
+                {count > 0 && (
+                  <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-brand-400'}`} />
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Meals() {
   const { state, dispatch } = useApp();
-  const [viewDate, setViewDate] = useState(getTodayString());
+  const today = getTodayString();
+  const [viewDate, setViewDate] = useState(today);
   const [showForm, setShowForm] = useState(false);
   const [editMeal, setEditMeal] = useState<MealRecord | null>(null);
   const [receiptMeal, setReceiptMeal] = useState<MealRecord | null>(null);
+
+  const initD = new Date(today + 'T00:00:00');
+  const [calYear, setCalYear] = useState(initD.getFullYear());
+  const [calMonth, setCalMonth] = useState(initD.getMonth());
 
   const dayMeals = state.meals
     .filter((m) => m.date === viewDate)
@@ -434,22 +513,42 @@ export default function Meals() {
 
   const dayTotal = dayMeals.reduce((s, m) => s + m.totalCost, 0);
 
-  function localDateString(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  function selectDate(dateStr: string) {
+    setViewDate(dateStr);
+    const d = new Date(dateStr + 'T00:00:00');
+    setCalYear(d.getFullYear());
+    setCalMonth(d.getMonth());
   }
   function prevDay() {
     const d = new Date(viewDate + 'T00:00:00');
     d.setDate(d.getDate() - 1);
     setViewDate(localDateString(d));
+    setCalYear(d.getFullYear());
+    setCalMonth(d.getMonth());
   }
   function nextDay() {
     const d = new Date(viewDate + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    const today = getTodayString();
     const next = localDateString(d);
-    if (next <= today) setViewDate(next);
+    if (next <= today) {
+      setViewDate(next);
+      setCalYear(d.getFullYear());
+      setCalMonth(d.getMonth());
+    }
   }
-  const isToday = viewDate === getTodayString();
+  function prevCalMonth() {
+    if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
+    else setCalMonth(calMonth - 1);
+  }
+  function nextCalMonth() {
+    const todayD = new Date(today + 'T00:00:00');
+    const notAtCurrentMonth = calYear < todayD.getFullYear() || (calYear === todayD.getFullYear() && calMonth < todayD.getMonth());
+    if (notAtCurrentMonth) {
+      if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
+      else setCalMonth(calMonth + 1);
+    }
+  }
+  const isToday = viewDate === today;
 
   function handleSave(data: MealFormData) {
     let ingredients: MealIngredient[] = [];
@@ -518,6 +617,18 @@ export default function Meals() {
 
   return (
     <div className="pb-6">
+      {/* Calendar */}
+      <MealCalendar
+        meals={state.meals}
+        viewDate={viewDate}
+        today={today}
+        calYear={calYear}
+        calMonth={calMonth}
+        onSelectDate={selectDate}
+        onPrevMonth={prevCalMonth}
+        onNextMonth={nextCalMonth}
+      />
+
       {/* Date navigator */}
       <div className="flex items-center justify-between mb-4 bg-white rounded-2xl px-4 py-3 shadow-receipt">
         <button onClick={prevDay} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors">

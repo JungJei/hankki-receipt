@@ -456,23 +456,25 @@ function BudgetEditor({ onClose }: { onClose: () => void }) {
 // ── 기간 선택기 (영수증용) ────────────────────────────────────
 type PeriodPreset = 'week' | 'month' | 'custom';
 
+function toLocalStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function getWeekRange(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(d); mon.setDate(d.getDate() + diff);
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-  return {
-    from: mon.toISOString().split('T')[0],
-    to: sun.toISOString().split('T')[0],
-  };
+  return { from: toLocalStr(mon), to: toLocalStr(sun) };
 }
 
 function getMonthRange(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00');
-  const from = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  const to   = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
-  return { from, to };
+  return {
+    from: toLocalStr(new Date(d.getFullYear(), d.getMonth(), 1)),
+    to: toLocalStr(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+  };
 }
 
 // ── 메인 Stats 페이지 ─────────────────────────────────────────
