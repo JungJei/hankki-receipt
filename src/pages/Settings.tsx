@@ -4,6 +4,8 @@ import { useApp } from '../contexts/AppContext';
 import type { UnitDef } from '../types';
 import { getTodayString } from '../utils/calculations';
 
+declare const __APP_VERSION__: string;
+
 const TYPE_BASE_UNIT: Record<UnitDef['type'], string> = {
   weight: 'g',
   volume: 'ml',
@@ -180,6 +182,7 @@ export default function Settings() {
     <div className="pb-6">
       <BackupSection />
 
+
       <div className="border-t border-receipt-border mb-5" />
 
       <div className="mb-4">
@@ -342,6 +345,10 @@ export default function Settings() {
           <Plus size={16} /> 단위 추가
         </button>
       )}
+
+      <div className="mt-8 text-center text-xs text-gray-300">
+        v{__APP_VERSION__}
+      </div>
     </div>
   );
 }
