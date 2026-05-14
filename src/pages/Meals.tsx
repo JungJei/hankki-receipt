@@ -127,8 +127,8 @@ function MealForm({
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="min-w-0 overflow-hidden">
+      <div className="flex flex-col gap-1.5">
+        <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">날짜</label>
           <input
             type="date"
@@ -137,7 +137,7 @@ function MealForm({
             onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
           />
         </div>
-        <div className="min-w-0 overflow-hidden">
+        <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">시간</label>
           <input
             type="time"

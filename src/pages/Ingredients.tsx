@@ -233,8 +233,8 @@ function IngredientForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="min-w-0">
+      <div className="flex flex-col gap-1.5">
+        <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">구입일</label>
           <input
             type="date"
@@ -243,7 +243,7 @@ function IngredientForm({
             onChange={(e) => set('purchaseDate', e.target.value)}
           />
         </div>
-        <div className="min-w-0">
+        <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">유통기한</label>
           <input
             type="date"
