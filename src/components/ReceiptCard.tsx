@@ -17,27 +17,18 @@ export default function ReceiptCard({ meal, showActions = true }: ReceiptCardPro
   const receiptRef = useRef<HTMLDivElement>(null);
   const hasApprox = meal.ingredients.some((i) => i.isApprox);
 
-  async function captureCanvas() {
+  async function capturePng(): Promise<string | null> {
     if (!receiptRef.current) return null;
-    const html2canvas = (await import('html2canvas')).default;
-    const el = receiptRef.current;
-    return html2canvas(el, {
-      backgroundColor: '#FEFDFB',
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      width: el.scrollWidth,
-      height: el.scrollHeight,
-      windowWidth: el.scrollWidth,
-    });
+    const { toPng } = await import('html-to-image');
+    return toPng(receiptRef.current, { pixelRatio: 2, cacheBust: true });
   }
 
   async function handleDownload() {
     try {
-      const canvas = await captureCanvas();
-      if (!canvas) return;
+      const dataUrl = await capturePng();
+      if (!dataUrl) return;
       const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
+      a.href = dataUrl;
       a.download = `한끼영수증_${meal.date}_${meal.menuName}.png`;
       a.click();
     } catch (e) {
@@ -47,17 +38,16 @@ export default function ReceiptCard({ meal, showActions = true }: ReceiptCardPro
 
   async function handleShare() {
     try {
-      const canvas = await captureCanvas();
-      if (!canvas) return;
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `한끼영수증_${meal.menuName}.png`, { type: 'image/png' });
-        if (navigator.share && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: `한끼 영수증 - ${meal.menuName}` });
-        } else {
-          handleDownload();
-        }
-      }, 'image/png');
+      const dataUrl = await capturePng();
+      if (!dataUrl) return;
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], `한끼영수증_${meal.menuName}.png`, { type: 'image/png' });
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: `한끼 영수증 - ${meal.menuName}` });
+      } else {
+        handleDownload();
+      }
     } catch (e) {
       handleDownload();
     }

@@ -138,19 +138,10 @@ function PeriodReceipt({
   async function handleDownload() {
     if (!receiptRef.current) return;
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const el = receiptRef.current;
-      const canvas = await html2canvas(el, {
-        backgroundColor: '#FEFDFB',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: PR_W,
-        height: el.scrollHeight,
-        windowWidth: PR_W,
-      });
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(receiptRef.current, { pixelRatio: 2, cacheBust: true });
       const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
+      a.href = dataUrl;
       a.download = `한끼영수증_${label}_${from}~${to}.png`;
       a.click();
     } catch (e) { console.error(e); }
