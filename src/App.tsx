@@ -27,7 +27,7 @@ function AppInner() {
       <header className="bg-white border-b border-receipt-border px-4 pt-safe-top sticky top-0 z-30">
         <div className="max-w-lg mx-auto flex items-center justify-between h-14">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🧾</span>
+            <img src="/logo.png" alt="한끼 영수증" className="w-8 h-8 object-contain" />
             <div>
               <span className="font-bold text-gray-800 text-lg">한끼 영수증</span>
             </div>

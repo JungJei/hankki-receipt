@@ -15,9 +15,20 @@ export function formatCurrency(amount: number): string {
   return amount.toLocaleString('ko-KR') + '원';
 }
 
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function getTodayString(): string {
   const d = new Date();
-  return d.toISOString().split('T')[0];
+  // 새벽 3시 이전은 전날로 취급
+  if (d.getHours() < 3) {
+    d.setDate(d.getDate() - 1);
+  }
+  return toLocalDateString(d);
 }
 
 export function getMealsByDate(meals: MealRecord[], dateStr: string): MealRecord[] {
@@ -37,7 +48,7 @@ export function getDailyTotal(meals: MealRecord[], dateStr: string): number {
 }
 
 function getWeekBounds(dateStr: string): { from: string; to: string } {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   const mon = new Date(d);
@@ -45,16 +56,17 @@ function getWeekBounds(dateStr: string): { from: string; to: string } {
   const sun = new Date(mon);
   sun.setDate(mon.getDate() + 6);
   return {
-    from: mon.toISOString().split('T')[0],
-    to: sun.toISOString().split('T')[0],
+    from: toLocalDateString(mon),
+    to: toLocalDateString(sun),
   };
 }
 
 function getMonthBounds(dateStr: string): { from: string; to: string } {
-  const d = new Date(dateStr);
-  const from = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  const to = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
-  return { from, to };
+  const d = new Date(dateStr + 'T00:00:00');
+  return {
+    from: toLocalDateString(new Date(d.getFullYear(), d.getMonth(), 1)),
+    to: toLocalDateString(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+  };
 }
 
 export function getWeeklyTotal(meals: MealRecord[], dateStr: string): number {
@@ -68,15 +80,15 @@ export function getMonthlyTotal(meals: MealRecord[], dateStr: string): number {
 }
 
 export function getPrevWeekTotal(meals: MealRecord[], dateStr: string): number {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() - 7);
-  return getWeeklyTotal(meals, d.toISOString().split('T')[0]);
+  return getWeeklyTotal(meals, toLocalDateString(d));
 }
 
 export function getPrevMonthTotal(meals: MealRecord[], dateStr: string): number {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + 'T00:00:00');
   d.setMonth(d.getMonth() - 1);
-  return getMonthlyTotal(meals, d.toISOString().split('T')[0]);
+  return getMonthlyTotal(meals, toLocalDateString(d));
 }
 
 export function getBudgetRatio(spent: number, budget: number): number {
@@ -94,20 +106,22 @@ export function getBudgetStatus(spent: number, budget: number): 'safe' | 'warnin
 
 export function getLast7Days(): string[] {
   const result: string[] = [];
+  const today = getTodayString();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
+    const d = new Date(today + 'T00:00:00');
     d.setDate(d.getDate() - i);
-    result.push(d.toISOString().split('T')[0]);
+    result.push(toLocalDateString(d));
   }
   return result;
 }
 
 export function getLast30Days(): { date: string; label: string }[] {
   const result = [];
+  const today = getTodayString();
   for (let i = 29; i >= 0; i--) {
-    const d = new Date();
+    const d = new Date(today + 'T00:00:00');
     d.setDate(d.getDate() - i);
-    const date = d.toISOString().split('T')[0];
+    const date = toLocalDateString(d);
     result.push({ date, label: `${d.getMonth() + 1}/${d.getDate()}` });
   }
   return result;

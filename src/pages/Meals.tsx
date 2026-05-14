@@ -128,7 +128,7 @@ function MealForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="grid grid-cols-2 gap-1.5">
-        <div className="min-w-0">
+        <div className="min-w-0 overflow-hidden">
           <label className="block text-xs font-medium text-gray-500 mb-1">날짜</label>
           <input
             type="date"
@@ -137,7 +137,7 @@ function MealForm({
             onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
           />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 overflow-hidden">
           <label className="block text-xs font-medium text-gray-500 mb-1">시간</label>
           <input
             type="time"
@@ -255,7 +255,7 @@ function MealForm({
                       const selIng = ingredients.find((ig) => ig.id === item.ingredientId);
                       return (
                         <select
-                          className="w-20 shrink-0 border border-receipt-border rounded-lg px-1.5 py-2 text-sm bg-white focus:outline-none focus:border-brand-400"
+                          className="w-16 shrink-0 border border-receipt-border rounded-lg px-1 py-2 text-sm bg-white focus:outline-none focus:border-brand-400"
                           value={item.unit}
                           onChange={(e) => updateItem(i, 'unit', e.target.value)}
                         >
@@ -276,22 +276,22 @@ function MealForm({
                       );
                     })()}
                     {casual ? (
-                      <div className="flex-1 px-2.5 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                        ≈ 대략적 계산
+                      <div className="w-20 shrink-0 px-2 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                        ≈ 대략
                       </div>
                     ) : (
                       <input
                         type="number"
                         min="0"
                         step="any"
-                        className="flex-1 border border-receipt-border rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-brand-400"
+                        className="w-20 shrink-0 border border-receipt-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-brand-400"
                         placeholder="수량"
                         value={item.amount}
                         onChange={(e) => updateItem(i, 'amount', e.target.value)}
                       />
                     )}
-                    <div className="text-xs font-receipt font-semibold text-brand-500 shrink-0 text-right">
-                      {cost > 0 ? `~${formatCurrency(cost)}` : '-'}
+                    <div className="flex-1 min-w-0 text-xs font-receipt font-semibold text-brand-500 truncate">
+                      {cost > 0 ? `= ~${formatCurrency(cost)}` : '= -'}
                     </div>
                   </div>
                 </div>
@@ -434,16 +434,19 @@ export default function Meals() {
 
   const dayTotal = dayMeals.reduce((s, m) => s + m.totalCost, 0);
 
+  function localDateString(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
   function prevDay() {
     const d = new Date(viewDate + 'T00:00:00');
     d.setDate(d.getDate() - 1);
-    setViewDate(d.toISOString().split('T')[0]);
+    setViewDate(localDateString(d));
   }
   function nextDay() {
     const d = new Date(viewDate + 'T00:00:00');
     d.setDate(d.getDate() + 1);
     const today = getTodayString();
-    const next = d.toISOString().split('T')[0];
+    const next = localDateString(d);
     if (next <= today) setViewDate(next);
   }
   const isToday = viewDate === getTodayString();
