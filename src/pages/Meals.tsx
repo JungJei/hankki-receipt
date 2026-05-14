@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Trash2, Receipt, UtensilsCrossed } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Trash2, Receipt, UtensilsCrossed, Edit2 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import Modal from '../components/Modal';
 import ReceiptCard from '../components/ReceiptCard';
@@ -38,16 +38,41 @@ function getMealSortKey(meal: MealRecord): string {
   return order[meal.mealType ?? 'snack'] ?? '12:00';
 }
 
-function MealForm({ onSave, onCancel }: { onSave: (data: MealFormData) => void; onCancel: () => void }) {
+function MealForm({
+  initialData,
+  onSave,
+  onCancel,
+}: {
+  initialData?: MealRecord;
+  onSave: (data: MealFormData) => void;
+  onCancel: () => void;
+}) {
   const { state } = useApp();
-  const [form, setForm] = useState<MealFormData>({
-    date: getTodayString(),
-    time: getNowTime(),
-    mealKind: 'homemade',
-    menuName: '',
-    items: [],
-    price: '',
-    memo: '',
+  const [form, setForm] = useState<MealFormData>(() => {
+    if (initialData) {
+      return {
+        date: initialData.date,
+        time: initialData.time ?? getNowTime(),
+        mealKind: initialData.mealKind ?? 'homemade',
+        menuName: initialData.menuName,
+        items: initialData.ingredients.map((mi) => ({
+          ingredientId: mi.ingredientId,
+          amount: mi.displayAmount,
+          unit: mi.unit,
+        })),
+        price: initialData.mealKind === 'delivery' ? String(initialData.totalCost) : '',
+        memo: initialData.memo ?? '',
+      };
+    }
+    return {
+      date: getTodayString(),
+      time: getNowTime(),
+      mealKind: 'homemade',
+      menuName: '',
+      items: [],
+      price: '',
+      memo: '',
+    };
   });
 
   const ingredients = state.ingredients;
@@ -76,18 +101,19 @@ function MealForm({ onSave, onCancel }: { onSave: (data: MealFormData) => void; 
     });
   }
 
+  function resolveBaseAmount(item: MealFormIngredient, ing: ReturnType<typeof ingredients.find> & object): number {
+    if (isCasualUnit(item.unit)) return casualToBaseAmount(item.unit as any, ing.unit);
+    const numAmt = parseFloat(item.amount);
+    if (isNaN(numAmt)) return 0;
+    if (ing.unitConversion && item.unit === ing.unitConversion.unit) return numAmt * ing.unitConversion.amount;
+    return toBaseAmount(numAmt, item.unit as any);
+  }
+
   function calcItemCost(item: MealFormIngredient): number {
     const ing = ingredients.find((i) => i.id === item.ingredientId);
     if (!ing) return 0;
-    if (isCasualUnit(item.unit)) {
-      const base = casualToBaseAmount(item.unit as any, ing.unit);
-      return calcIngredientCost(ing, base);
-    }
-    if (!item.amount) return 0;
-    const numAmt = parseFloat(item.amount);
-    if (isNaN(numAmt)) return 0;
-    const baseAmt = toBaseAmount(numAmt, item.unit as any);
-    return calcIngredientCost(ing, baseAmt);
+    if (!isCasualUnit(item.unit) && !item.amount) return 0;
+    return calcIngredientCost(ing, resolveBaseAmount(item, ing));
   }
 
   const totalCost = form.items.reduce((sum, item) => sum + calcItemCost(item), 0);
@@ -209,27 +235,45 @@ function MealForm({ onSave, onCancel }: { onSave: (data: MealFormData) => void; 
                       value={item.ingredientId}
                       onChange={(e) => updateItem(i, 'ingredientId', e.target.value)}
                     >
-                      {ingredients.map((ig) => (
-                        <option key={ig.id} value={ig.id}>{ig.name} ({ig.remainingQuantity.toFixed(1)}{ig.unit})</option>
-                      ))}
+                      {ingredients.map((ig) => {
+                        const dateLabel = ig.purchaseDate.slice(5).replace('-', '/');
+                        const remLabel = `${ig.remainingQuantity.toFixed(ig.remainingQuantity < 10 ? 1 : 0)}${ig.unit}`;
+                        return (
+                          <option key={ig.id} value={ig.id}>
+                            {ig.name} ({dateLabel} 구입, {remLabel} 남음)
+                          </option>
+                        );
+                      })}
                     </select>
                     <button type="button" onClick={() => removeItem(i)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
                       <Trash2 size={14} />
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <select
-                      className="w-28 shrink-0 border border-receipt-border rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:border-brand-400"
-                      value={item.unit}
-                      onChange={(e) => updateItem(i, 'unit', e.target.value)}
-                    >
-                      <optgroup label="표준 단위">
-                        {STANDARD_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                      </optgroup>
-                      <optgroup label="표현 단위">
-                        {CASUAL_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                      </optgroup>
-                    </select>
+                    {(() => {
+                      const selIng = ingredients.find((ig) => ig.id === item.ingredientId);
+                      return (
+                        <select
+                          className="w-28 shrink-0 border border-receipt-border rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:border-brand-400"
+                          value={item.unit}
+                          onChange={(e) => updateItem(i, 'unit', e.target.value)}
+                        >
+                          <optgroup label="표준 단위">
+                            {STANDARD_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                          </optgroup>
+                          <optgroup label="표현 단위">
+                            {CASUAL_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                          </optgroup>
+                          {selIng?.unitConversion && (
+                            <optgroup label="개수 단위">
+                              <option value={selIng.unitConversion.unit}>
+                                {selIng.unitConversion.unit} (1{selIng.unitConversion.unit}={selIng.unitConversion.amount}{selIng.unit})
+                              </option>
+                            </optgroup>
+                          )}
+                        </select>
+                      );
+                    })()}
                     {casual ? (
                       <div className="flex-1 px-2.5 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
                         ≈ 대략적 계산
@@ -296,10 +340,12 @@ function MealForm({ onSave, onCancel }: { onSave: (data: MealFormData) => void; 
 function MealCard({
   meal,
   onDelete,
+  onEdit,
   onViewReceipt,
 }: {
   meal: MealRecord;
   onDelete: () => void;
+  onEdit: () => void;
   onViewReceipt: () => void;
 }) {
   return (
@@ -353,7 +399,14 @@ function MealCard({
           onClick={onViewReceipt}
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
         >
-          <Receipt size={13} /> 영수증 보기
+          <Receipt size={13} /> 영수증
+        </button>
+        <div className="w-px bg-receipt-border" />
+        <button
+          onClick={onEdit}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs text-brand-500 hover:bg-brand-50 transition-colors"
+        >
+          <Edit2 size={13} /> 수정
         </button>
         <div className="w-px bg-receipt-border" />
         <button
@@ -371,6 +424,7 @@ export default function Meals() {
   const { state, dispatch } = useApp();
   const [viewDate, setViewDate] = useState(getTodayString());
   const [showForm, setShowForm] = useState(false);
+  const [editMeal, setEditMeal] = useState<MealRecord | null>(null);
   const [receiptMeal, setReceiptMeal] = useState<MealRecord | null>(null);
 
   const dayMeals = state.meals
@@ -415,7 +469,11 @@ export default function Meals() {
             cost = calcIngredientCost(ing, usedAmount);
           } else {
             const numAmt = parseFloat(item.amount) || 0;
-            usedAmount = toBaseAmount(numAmt, item.unit as any);
+            if (ing.unitConversion && item.unit === ing.unitConversion.unit) {
+              usedAmount = numAmt * ing.unitConversion.amount;
+            } else {
+              usedAmount = toBaseAmount(numAmt, item.unit as any);
+            }
             displayAmount = item.amount;
             cost = calcIngredientCost(ing, usedAmount);
           }
@@ -435,18 +493,22 @@ export default function Meals() {
       totalCost = ingredients.reduce((s, i) => s + i.cost, 0);
     }
 
-    dispatch({
-      type: 'ADD_MEAL',
-      payload: {
-        date: data.date,
-        time: data.time,
-        mealKind: data.mealKind,
-        menuName: data.menuName.trim(),
-        ingredients,
-        totalCost,
-        memo: data.memo || undefined,
-      },
-    });
+    const payload = {
+      date: data.date,
+      time: data.time,
+      mealKind: data.mealKind,
+      menuName: data.menuName.trim(),
+      ingredients,
+      totalCost,
+      memo: data.memo || undefined,
+    };
+
+    if (editMeal) {
+      dispatch({ type: 'UPDATE_MEAL', payload: { old: editMeal, updated: payload } });
+      setEditMeal(null);
+    } else {
+      dispatch({ type: 'ADD_MEAL', payload });
+    }
     setShowForm(false);
   }
 
@@ -497,6 +559,7 @@ export default function Meals() {
               key={meal.id}
               meal={meal}
               onDelete={() => { if (confirm('이 식사 기록을 삭제할까요?')) dispatch({ type: 'DELETE_MEAL', payload: meal.id }); }}
+              onEdit={() => { setEditMeal(meal); setShowForm(true); }}
               onViewReceipt={() => setReceiptMeal(meal)}
             />
           ))}
@@ -514,11 +577,15 @@ export default function Meals() {
       {/* Meal form modal */}
       <Modal
         isOpen={showForm}
-        onClose={() => setShowForm(false)}
-        title="식사 기록"
+        onClose={() => { setShowForm(false); setEditMeal(null); }}
+        title={editMeal ? '식사 수정' : '식사 기록'}
         size="md"
       >
-        <MealForm onSave={handleSave} onCancel={() => setShowForm(false)} />
+        <MealForm
+          initialData={editMeal ?? undefined}
+          onSave={handleSave}
+          onCancel={() => { setShowForm(false); setEditMeal(null); }}
+        />
       </Modal>
 
       {/* Receipt modal */}

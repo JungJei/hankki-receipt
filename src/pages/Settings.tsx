@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Trash2, Plus, Edit2, Check, X } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Trash2, Plus, Edit2, Check, X, Download, Upload } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import type { UnitDef } from '../types';
+import { getTodayString } from '../utils/calculations';
 
 const TYPE_BASE_UNIT: Record<UnitDef['type'], string> = {
   weight: 'g',
@@ -14,6 +15,113 @@ const TYPE_SECTION_LABEL: Record<UnitDef['type'], string> = {
   volume: '용량 단위 (ml 기준)',
   count: '개수 단위',
 };
+
+// ── 데이터 백업 ───────────────────────────────────────────────
+function BackupSection() {
+  const { state, dispatch } = useApp();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importStatus, setImportStatus] = useState<'idle' | 'ok' | 'error'>('idle');
+
+  function handleExport() {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      ingredients: state.ingredients,
+      meals: state.meals,
+      budget: state.budget,
+      units: state.units,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hankki-backup-${getTodayString()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const raw = JSON.parse(ev.target?.result as string);
+        if (!raw.ingredients || !raw.meals) throw new Error('invalid');
+        if (!confirm('기존 데이터를 불러온 데이터로 덮어쓸까요?\n현재 데이터는 사라집니다.')) return;
+        dispatch({
+          type: 'RESTORE_ALL',
+          payload: {
+            ingredients: raw.ingredients,
+            meals: raw.meals,
+            budget: raw.budget,
+            units: raw.units,
+          },
+        });
+        setImportStatus('ok');
+        setTimeout(() => setImportStatus('idle'), 3000);
+      } catch {
+        setImportStatus('error');
+        setTimeout(() => setImportStatus('idle'), 3000);
+      }
+    };
+    reader.readAsText(file);
+    // 같은 파일 재선택 허용
+    e.target.value = '';
+  }
+
+  const mealCount = state.meals.length;
+  const ingCount  = state.ingredients.length;
+
+  return (
+    <div className="mb-6">
+      <h2 className="text-base font-bold text-gray-800 mb-1">데이터 백업</h2>
+      <p className="text-xs text-gray-500 mb-4">
+        JSON 파일로 내보내고 가져올 수 있어요. 기기를 바꿀 때도 유용해요.
+      </p>
+
+      <div className="bg-gray-50 rounded-xl px-4 py-3 mb-3 flex justify-between text-sm">
+        <span className="text-gray-500">현재 데이터</span>
+        <span className="text-gray-700 font-medium">
+          식재료 {ingCount}개 · 식사 {mealCount}건
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={handleExport}
+          className="flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 transition-colors"
+        >
+          <Download size={15} /> 내보내기
+        </button>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center justify-center gap-2 py-3 rounded-xl border border-receipt-border text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+        >
+          <Upload size={15} /> 가져오기
+        </button>
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleImport}
+      />
+
+      {importStatus === 'ok' && (
+        <div className="mt-3 text-xs text-green-600 bg-green-50 rounded-xl px-3 py-2 flex items-center gap-1.5">
+          <Check size={13} /> 데이터를 성공적으로 불러왔어요
+        </div>
+      )}
+      {importStatus === 'error' && (
+        <div className="mt-3 text-xs text-red-500 bg-red-50 rounded-xl px-3 py-2">
+          ⚠ 올바른 백업 파일이 아니에요
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Settings() {
   const { state, dispatch } = useApp();
@@ -70,6 +178,10 @@ export default function Settings() {
 
   return (
     <div className="pb-6">
+      <BackupSection />
+
+      <div className="border-t border-receipt-border mb-5" />
+
       <div className="mb-4">
         <h2 className="text-base font-bold text-gray-800">단위 관리</h2>
         <p className="text-xs text-gray-500 mt-1">재료 등록에 사용할 단위를 관리해요. 기준값을 수정하면 단가 계산에 반영돼요.</p>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Plus, Search, Trash2, Edit2, AlertCircle, Package, LayoutGrid, LayoutList } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import Modal from '../components/Modal';
@@ -9,6 +9,42 @@ import { formatCurrency, getTodayString } from '../utils/calculations';
 const CATEGORIES: IngredientCategory[] = [
   '채소', '과일', '육류', '해산물', '유제품', '곡물/면', '조미료', '소스', '음료', '가공식품', '기타',
 ];
+
+// ── 남은 양 상태 ──────────────────────────────────────────────
+type RemainingStatus = 'empty' | 'low' | 'warn' | 'ok';
+
+function getRemainingStatus(remaining: number, total: number): RemainingStatus {
+  if (remaining <= 0) return 'empty';
+  const ratio = total > 0 ? remaining / total : 1;
+  if (ratio < 0.25) return 'low';
+  if (ratio < 0.5) return 'warn';
+  return 'ok';
+}
+
+const STATUS_BAR: Record<RemainingStatus, string> = {
+  empty: 'bg-gray-300',
+  low:   'bg-red-400',
+  warn:  'bg-amber-400',
+  ok:    'bg-green-400',
+};
+const STATUS_TEXT: Record<RemainingStatus, string> = {
+  empty: 'text-gray-400',
+  low:   'text-red-500',
+  warn:  'text-amber-500',
+  ok:    'text-green-600',
+};
+const STATUS_LABEL: Record<RemainingStatus, string> = {
+  empty: '소진',
+  low:   '부족',
+  warn:  '주의',
+  ok:    '',
+};
+const STATUS_DOT: Record<RemainingStatus, string> = {
+  empty: 'bg-gray-300',
+  low:   'bg-red-400',
+  warn:  'bg-amber-400',
+  ok:    'bg-green-400',
+};
 
 const CATEGORY_COLORS: Record<IngredientCategory, string> = {
   채소: 'bg-green-100 text-green-700',
@@ -34,6 +70,9 @@ interface IngredientFormData {
   purchaseDate: string;
   expiryDate: string;
   memo: string;
+  conversionEnabled: boolean;
+  conversionUnit: string;
+  conversionAmount: string;
 }
 
 const DEFAULT_FORM: IngredientFormData = {
@@ -46,6 +85,9 @@ const DEFAULT_FORM: IngredientFormData = {
   purchaseDate: getTodayString(),
   expiryDate: '',
   memo: '',
+  conversionEnabled: false,
+  conversionUnit: '개',
+  conversionAmount: '',
 };
 
 function IngredientForm({
@@ -70,6 +112,9 @@ function IngredientForm({
           purchaseDate: initial.purchaseDate,
           expiryDate: initial.expiryDate ?? '',
           memo: initial.memo ?? '',
+          conversionEnabled: !!initial.unitConversion,
+          conversionUnit: initial.unitConversion?.unit ?? '개',
+          conversionAmount: initial.unitConversion ? String(initial.unitConversion.amount) : '',
         }
       : DEFAULT_FORM
   );
@@ -209,6 +254,42 @@ function IngredientForm({
         </div>
       </div>
 
+      {/* 개수 단위 환산 */}
+      <div className="bg-gray-50 rounded-xl p-3">
+        <label className="flex items-center gap-2 cursor-pointer mb-0">
+          <input
+            type="checkbox"
+            className="w-4 h-4 accent-brand-500"
+            checked={form.conversionEnabled}
+            onChange={(e) => setForm((f) => ({ ...f, conversionEnabled: e.target.checked }))}
+          />
+          <span className="text-xs font-medium text-gray-600">개수 단위 환산 추가</span>
+          <span className="text-xs text-gray-400">(예: 1개 = 55g)</span>
+        </label>
+        {form.conversionEnabled && (
+          <div className="flex items-center gap-2 mt-2.5">
+            <span className="text-sm text-gray-500 shrink-0">1</span>
+            <input
+              className="w-16 border border-receipt-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-brand-400 text-center"
+              placeholder="개"
+              value={form.conversionUnit}
+              onChange={(e) => set('conversionUnit', e.target.value)}
+            />
+            <span className="text-sm text-gray-400 shrink-0">=</span>
+            <input
+              type="number"
+              min="0.001"
+              step="any"
+              className="flex-1 border border-receipt-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-brand-400"
+              placeholder="55"
+              value={form.conversionAmount}
+              onChange={(e) => set('conversionAmount', e.target.value)}
+            />
+            <span className="text-sm text-gray-500 shrink-0">{form.unit}</span>
+          </div>
+        )}
+      </div>
+
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">메모</label>
         <input
@@ -249,14 +330,17 @@ function IngredientGridCard({
 }) {
   const remaining = ingredient.remainingQuantity;
   const total = ingredient.totalQuantity;
-  const ratio = total > 0 ? remaining / total : 0;
+  const ratio = total > 0 ? Math.max(0, remaining / total) : 0;
   const isExpired = ingredient.expiryDate ? ingredient.expiryDate < getTodayString() : false;
-  const isLow = ratio < 0.2 && ratio > 0;
+  const status: RemainingStatus = isExpired ? 'low' : getRemainingStatus(remaining, total);
 
   return (
     <div className={`bg-white rounded-2xl p-3 shadow-receipt border ${isExpired ? 'border-red-200' : 'border-transparent'}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-2xl">{CATEGORY_EMOJI[ingredient.category]}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-2xl">{CATEGORY_EMOJI[ingredient.category]}</span>
+          <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
+        </div>
         <div className="flex gap-0.5">
           <button onClick={onEdit} className="p-1 rounded-lg text-gray-300 hover:text-brand-500 transition-colors">
             <Edit2 size={13} />
@@ -268,16 +352,16 @@ function IngredientGridCard({
       </div>
       <div className="mb-2.5">
         <div className="font-semibold text-gray-800 text-sm leading-tight truncate">{ingredient.name}</div>
-        <div className={`text-xs mt-0.5 ${isExpired ? 'text-red-400' : isLow ? 'text-amber-500' : 'text-gray-400'}`}>
+        <div className={`text-xs mt-0.5 font-medium ${STATUS_TEXT[status]}`}>
           {remaining.toFixed(remaining < 10 ? 1 : 0)}{ingredient.unit}
           {isExpired && ' · 만료'}
-          {isLow && !isExpired && ' · 부족'}
+          {!isExpired && STATUS_LABEL[status] && ` · ${STATUS_LABEL[status]}`}
         </div>
       </div>
-      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${isExpired ? 'bg-red-400' : isLow ? 'bg-amber-400' : 'bg-brand-400'}`}
-          style={{ width: `${Math.max(0, ratio) * 100}%` }}
+          className={`h-full rounded-full transition-all ${STATUS_BAR[status]}`}
+          style={{ width: `${ratio * 100}%` }}
         />
       </div>
     </div>
@@ -295,13 +379,17 @@ function IngredientCard({
 }) {
   const remaining = ingredient.remainingQuantity;
   const total = ingredient.totalQuantity;
-  const ratio = total > 0 ? remaining / total : 0;
-  const isExpired =
-    ingredient.expiryDate ? ingredient.expiryDate < getTodayString() : false;
-  const isLow = ratio < 0.2 && ratio > 0;
+  const ratio = total > 0 ? Math.max(0, remaining / total) : 0;
+  const isExpired = ingredient.expiryDate ? ingredient.expiryDate < getTodayString() : false;
+  const status: RemainingStatus = isExpired ? 'low' : getRemainingStatus(remaining, total);
 
   return (
-    <div className={`bg-white rounded-2xl p-4 shadow-receipt border ${isExpired ? 'border-red-200' : 'border-transparent'}`}>
+    <div className={`bg-white rounded-2xl p-4 shadow-receipt border-l-4 ${
+      status === 'empty' ? 'border-l-gray-200' :
+      status === 'low'   ? 'border-l-red-400' :
+      status === 'warn'  ? 'border-l-amber-400' :
+                           'border-l-green-400'
+    } border border-transparent ${isExpired ? 'border-red-200' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -321,16 +409,15 @@ function IngredientCard({
           <div className="mb-1.5">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs text-gray-500">남은 양</span>
-              <span className={`text-xs font-medium ${isLow ? 'text-amber-500' : 'text-gray-600'}`}>
+              <span className={`text-xs font-semibold ${STATUS_TEXT[status]}`}>
                 {remaining.toFixed(remaining < 10 ? 1 : 0)}{ingredient.unit}
+                {STATUS_LABEL[status] && <span className="ml-1 font-normal opacity-80">({STATUS_LABEL[status]})</span>}
               </span>
             </div>
-            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${
-                  isExpired ? 'bg-red-400' : isLow ? 'bg-amber-400' : 'bg-brand-400'
-                }`}
-                style={{ width: `${Math.max(0, ratio) * 100}%` }}
+                className={`h-full rounded-full transition-all ${STATUS_BAR[status]}`}
+                style={{ width: `${ratio * 100}%` }}
               />
             </div>
           </div>
@@ -341,9 +428,14 @@ function IngredientCard({
                 <AlertCircle size={10} /> 유통기한 만료
               </span>
             )}
-            {isLow && !isExpired && (
-              <span className="flex items-center gap-0.5 text-amber-500">
+            {status === 'low' && !isExpired && (
+              <span className="flex items-center gap-0.5 text-red-500">
                 <AlertCircle size={10} /> 재료 부족
+              </span>
+            )}
+            {status === 'warn' && !isExpired && (
+              <span className="flex items-center gap-0.5 text-amber-500">
+                <AlertCircle size={10} /> 절반 이하
               </span>
             )}
             {ingredient.expiryDate && !isExpired && (
@@ -371,21 +463,35 @@ function IngredientCard({
   );
 }
 
+function getSavedViewMode(): 'list' | 'grid' {
+  return (localStorage.getItem('ingredients-view-mode') as 'list' | 'grid') ?? 'list';
+}
+
 export default function Ingredients() {
   const { state, dispatch } = useApp();
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<IngredientCategory | '전체'>('전체');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [showEmpty, setShowEmpty] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(getSavedViewMode);
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Ingredient | null>(null);
 
+  const changeViewMode = useCallback((mode: 'list' | 'grid') => {
+    setViewMode(mode);
+    localStorage.setItem('ingredients-view-mode', mode);
+  }, []);
+
+  const emptyCount = state.ingredients.filter((i) => i.remainingQuantity <= 0).length;
+
   const filtered = state.ingredients.filter((ing) => {
+    if (!showEmpty && ing.remainingQuantity <= 0) return false;
     const matchCat = catFilter === '전체' || ing.category === catFilter;
     const matchSearch = ing.name.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
 
   function handleSave(data: IngredientFormData) {
+    const convAmt = parseFloat(data.conversionAmount);
     const payload = {
       name: data.name.trim(),
       category: data.category,
@@ -395,6 +501,10 @@ export default function Ingredients() {
       purchaseDate: data.purchaseDate,
       expiryDate: data.expiryDate || undefined,
       memo: data.memo || undefined,
+      unitConversion:
+        data.conversionEnabled && data.conversionUnit.trim() && !isNaN(convAmt) && convAmt > 0
+          ? { unit: data.conversionUnit.trim(), amount: convAmt }
+          : undefined,
     };
 
     if (editTarget) {
@@ -434,13 +544,13 @@ export default function Ingredients() {
           </div>
           <div className="flex border border-receipt-border rounded-xl overflow-hidden bg-white shrink-0">
             <button
-              onClick={() => setViewMode('list')}
+              onClick={() => changeViewMode('list')}
               className={`px-2.5 flex items-center transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-gray-400 hover:text-gray-600'}`}
             >
               <LayoutList size={16} />
             </button>
             <button
-              onClick={() => setViewMode('grid')}
+              onClick={() => changeViewMode('grid')}
               className={`px-2.5 flex items-center transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-gray-400 hover:text-gray-600'}`}
             >
               <LayoutGrid size={16} />
@@ -461,6 +571,18 @@ export default function Ingredients() {
               {cat !== '전체' && CATEGORY_EMOJI[cat as IngredientCategory]}{' '}{cat}
             </button>
           ))}
+          {emptyCount > 0 && (
+            <button
+              onClick={() => setShowEmpty((v) => !v)}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1 ${
+                showEmpty
+                  ? 'bg-gray-500 text-white'
+                  : 'bg-white border border-receipt-border text-gray-400 hover:bg-gray-50'
+              }`}
+            >
+              🗂 소진됨 {emptyCount}
+            </button>
+          )}
         </div>
       </div>
 

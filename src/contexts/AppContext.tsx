@@ -10,12 +10,14 @@ type Action =
   | { type: 'UPDATE_INGREDIENT'; payload: Ingredient }
   | { type: 'DELETE_INGREDIENT'; payload: string }
   | { type: 'ADD_MEAL'; payload: Omit<MealRecord, 'id' | 'createdAt'> }
+  | { type: 'UPDATE_MEAL'; payload: { old: MealRecord; updated: Omit<MealRecord, 'id' | 'createdAt'> } }
   | { type: 'DELETE_MEAL'; payload: string }
   | { type: 'UPDATE_BUDGET'; payload: Budget }
   | { type: 'RESTORE_INGREDIENT_QTY'; mealId: string }
   | { type: 'ADD_UNIT'; payload: UnitDef }
   | { type: 'UPDATE_UNIT'; payload: { name: string; baseValue: number } }
-  | { type: 'DELETE_UNIT'; payload: string };
+  | { type: 'DELETE_UNIT'; payload: string }
+  | { type: 'RESTORE_ALL'; payload: Partial<AppState> };
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -57,6 +59,29 @@ function reducer(state: AppState, action: Action): AppState {
       });
       return { ...state, meals: [...state.meals, meal], ingredients: updatedIngredients };
     }
+    case 'UPDATE_MEAL': {
+      const { old: oldMeal, updated } = action.payload;
+      // 1) 기존 재료 소비량 복원
+      let ings = state.ingredients.map((ing) => {
+        const used = oldMeal.ingredients.find((mi) => mi.ingredientId === ing.id);
+        if (!used) return ing;
+        const usedInUnit = used.usedAmount / (ing.unit === 'kg' ? 1000 : ing.unit === 'L' ? 1000 : 1);
+        return { ...ing, remainingQuantity: ing.remainingQuantity + usedInUnit };
+      });
+      // 2) 새 재료 소비량 차감
+      ings = ings.map((ing) => {
+        const used = updated.ingredients.find((mi) => mi.ingredientId === ing.id);
+        if (!used) return ing;
+        const usedInUnit = used.usedAmount / (ing.unit === 'kg' ? 1000 : ing.unit === 'L' ? 1000 : 1);
+        return { ...ing, remainingQuantity: Math.max(0, ing.remainingQuantity - usedInUnit) };
+      });
+      const newMeal: MealRecord = { ...oldMeal, ...updated };
+      return {
+        ...state,
+        meals: state.meals.map((m) => (m.id === oldMeal.id ? newMeal : m)),
+        ingredients: ings,
+      };
+    }
     case 'DELETE_MEAL': {
       const meal = state.meals.find((m) => m.id === action.payload);
       if (!meal) return state;
@@ -89,6 +114,15 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'DELETE_UNIT': {
       return { ...state, units: state.units.filter((u) => u.name !== action.payload) };
+    }
+
+    case 'RESTORE_ALL': {
+      return {
+        ingredients: action.payload.ingredients ?? state.ingredients,
+        meals:       action.payload.meals       ?? state.meals,
+        budget:      action.payload.budget      ?? state.budget,
+        units:       action.payload.units       ?? state.units,
+      };
     }
 
     default:

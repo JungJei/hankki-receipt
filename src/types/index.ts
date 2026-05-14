@@ -61,6 +61,8 @@ export interface Ingredient {
   expiryDate?: string;
   remainingQuantity: number;
   memo?: string;
+  /** 개수 단위 환산: "1 {unit} = {amount} {base unit}" — 예: { unit: '개', amount: 55 } */
+  unitConversion?: { unit: string; amount: number };
 }
 
 export interface MealIngredient {
