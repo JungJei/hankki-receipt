@@ -105,7 +105,8 @@ function MealForm({
     if (isCasualUnit(item.unit)) return casualToBaseAmount(item.unit as any, ing.unit);
     const numAmt = parseFloat(item.amount);
     if (isNaN(numAmt)) return 0;
-    if (ing.unitConversion && item.unit === ing.unitConversion.unit) return numAmt * ing.unitConversion.amount;
+    if (ing.unitConversion && item.unit === ing.unitConversion.unit)
+      return toBaseAmount(numAmt * ing.unitConversion.amount, ing.unit);
     return toBaseAmount(numAmt, item.unit as any);
   }
 
@@ -249,12 +250,12 @@ function MealForm({
                       <Trash2 size={14} />
                     </button>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {(() => {
                       const selIng = ingredients.find((ig) => ig.id === item.ingredientId);
                       return (
                         <select
-                          className="w-28 shrink-0 border border-receipt-border rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:border-brand-400"
+                          className="w-20 shrink-0 border border-receipt-border rounded-lg px-1.5 py-2 text-sm bg-white focus:outline-none focus:border-brand-400"
                           value={item.unit}
                           onChange={(e) => updateItem(i, 'unit', e.target.value)}
                         >
@@ -289,7 +290,7 @@ function MealForm({
                         onChange={(e) => updateItem(i, 'amount', e.target.value)}
                       />
                     )}
-                    <div className="text-sm font-receipt font-semibold text-brand-500 shrink-0 min-w-12 text-right">
+                    <div className="text-xs font-receipt font-semibold text-brand-500 shrink-0 text-right">
                       {cost > 0 ? `~${formatCurrency(cost)}` : '-'}
                     </div>
                   </div>
@@ -470,7 +471,7 @@ export default function Meals() {
           } else {
             const numAmt = parseFloat(item.amount) || 0;
             if (ing.unitConversion && item.unit === ing.unitConversion.unit) {
-              usedAmount = numAmt * ing.unitConversion.amount;
+              usedAmount = toBaseAmount(numAmt * ing.unitConversion.amount, ing.unit);
             } else {
               usedAmount = toBaseAmount(numAmt, item.unit as any);
             }

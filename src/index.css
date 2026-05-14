@@ -23,9 +23,10 @@
     input:not([type="date"]), select, textarea {
       font-size: 16px !important;
     }
-    /* date input은 키보드 대신 휠 피커를 써서 줌인이 없으므로 14px로 고정해 두 칸이 나란히 맞도록 함 */
-    input[type="date"] {
-      font-size: 14px !important;
+    /* date/time input은 키보드 대신 피커를 써서 줌인이 없으므로 작게 고정 */
+    input[type="date"],
+    input[type="time"] {
+      font-size: 12px !important;
       min-width: 0 !important;
     }
   }
