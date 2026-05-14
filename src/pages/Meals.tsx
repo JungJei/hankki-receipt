@@ -127,21 +127,21 @@ function MealForm({
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="min-w-0 overflow-hidden">
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="min-w-0">
           <label className="block text-xs font-medium text-gray-500 mb-1">날짜</label>
           <input
             type="date"
-            className="w-full border border-receipt-border rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-brand-400"
+            className="w-full border border-receipt-border rounded-xl px-1.5 py-2 text-xs focus:outline-none focus:border-brand-400"
             value={form.date}
             onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
           />
         </div>
-        <div className="min-w-0 overflow-hidden">
+        <div className="min-w-0">
           <label className="block text-xs font-medium text-gray-500 mb-1">시간</label>
           <input
             type="time"
-            className="w-full border border-receipt-border rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-brand-400"
+            className="w-full border border-receipt-border rounded-xl px-1.5 py-2 text-xs focus:outline-none focus:border-brand-400"
             value={form.time}
             onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
           />

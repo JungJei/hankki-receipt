@@ -233,21 +233,21 @@ function IngredientForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="min-w-0 overflow-hidden">
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="min-w-0">
           <label className="block text-xs font-medium text-gray-500 mb-1">구입일</label>
           <input
             type="date"
-            className="w-full border border-receipt-border rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-brand-400"
+            className="w-full border border-receipt-border rounded-xl px-1.5 py-2 text-xs focus:outline-none focus:border-brand-400"
             value={form.purchaseDate}
             onChange={(e) => set('purchaseDate', e.target.value)}
           />
         </div>
-        <div className="min-w-0 overflow-hidden">
+        <div className="min-w-0">
           <label className="block text-xs font-medium text-gray-500 mb-1">유통기한</label>
           <input
             type="date"
-            className="w-full border border-receipt-border rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-brand-400"
+            className="w-full border border-receipt-border rounded-xl px-1.5 py-2 text-xs focus:outline-none focus:border-brand-400"
             value={form.expiryDate}
             onChange={(e) => set('expiryDate', e.target.value)}
           />
