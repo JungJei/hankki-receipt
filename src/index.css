@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    margin: 0;
+    background: #F8F4EF;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  input, select, textarea, button {
+    font-family: inherit;
+  }
+  /* 모바일 자동 확대 방지: iOS/Android는 font-size < 16px인 input 탭 시 줌인함 */
+  @media (max-width: 768px) {
+    input:not([type="date"]), select, textarea {
+      font-size: 16px !important;
+    }
+    /* date input은 키보드 대신 휠 피커를 써서 줌인이 없으므로 14px로 고정해 두 칸이 나란히 맞도록 함 */
+    input[type="date"] {
+      font-size: 14px !important;
+      min-width: 0 !important;
+    }
+  }
+}
+
+@layer components {
+  .receipt-dashed {
+    border-top: 2px dashed #C8BFB5;
+  }
+  .receipt-double {
+    border-top: 3px double #1A1A2E;
+  }
+}
+
+@layer utilities {
+  .font-receipt {
+    font-family: 'Courier New', Courier, monospace;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .pt-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
