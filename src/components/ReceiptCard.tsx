@@ -97,7 +97,7 @@ export default function ReceiptCard({ meal, showActions = true }: ReceiptCardPro
             <div style={{ fontSize: 11, letterSpacing: '0.28em', color: '#9CA3AF', marginBottom: 8 }}>
               ✦ HANKKI RECEIPT ✦
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#111827', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
               한끼 영수증
             </div>
             <div style={{ marginTop: 10, fontSize: 12, color: '#6B7280' }}>
@@ -197,7 +197,7 @@ export default function ReceiptCard({ meal, showActions = true }: ReceiptCardPro
                 />
               ))}
             </div>
-            <div style={{ fontSize: 10, color: '#9CA3AF', letterSpacing: '0.2em', marginTop: 6 }}>
+            <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 6 }}>
               한끼 영수증
             </div>
           </div>
