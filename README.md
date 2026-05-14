@@ -1,73 +1,222 @@
-# React + TypeScript + Vite
+# 🧾 한끼 영수증
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+냉장고 식재료를 관리하고, 매 끼니의 식비를 영수증처럼 기록하는 PWA 앱입니다.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 주요 기능
 
-## React Compiler
+| 기능 | 설명 |
+|------|------|
+| 식재료 관리 | 구매한 재료의 수량, 가격, 유통기한 등록 및 잔량 자동 추적 |
+| 식사 기록 | 해먹기 / 배달·외식 구분, 재료별 비용 자동 계산 |
+| 예산 관리 | 월간 예산 설정, 주간·월간 진행률 실시간 표시 |
+| 통계 분석 | 일별 차트, 해먹기 vs 배달 비교, 기간별 영수증 |
+| 단위 관리 | 커스텀 단위 추가·수정·삭제, 개수↔중량 환산 |
+| 데이터 백업 | JSON 내보내기 / 가져오기 |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 화면 구성
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+앱은 하단 탭 네 개로 구성됩니다.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+홈  |  식재료  |  식사기록  |  통계
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 홈 (대시보드)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+앱을 열면 가장 먼저 보이는 화면입니다.
+
+- **오늘 식비**: 오늘 기록된 식사의 합계를 크게 표시합니다.
+- **예산 현황**: 주간·월간 예산 대비 사용률을 진행 바로 보여줍니다.
+  - 초록(안전) → 황색(80% 이상) → 빨강(초과)
+- **최근 7일 차트**: 막대 그래프로 일별 식비 추이를 확인할 수 있습니다. 주간·월간 합계와 전주·전달 대비 증감(%)도 함께 표시됩니다.
+- **오늘의 식사**: 오늘 기록한 식사 목록을 시간순으로 나열합니다.
+- **최근 기록**: 최근 3일간의 식사 기록을 날짜별로 묶어 보여줍니다.
+
+---
+
+## 식재료 관리
+
+### 식재료 등록
+
+우측 하단 **+** 버튼을 눌러 식재료를 등록합니다.
+
+| 항목 | 설명 |
+|------|------|
+| 재료명 | 필수 입력 |
+| 카테고리 | 채소·과일·육류·해산물·유제품·곡물/면·조미료·소스·음료·가공식품·기타 |
+| 수량 & 단위 | g, kg, ml, L, 개, 장, 봉, 팩, 병, 캔, 컵 등 |
+| 구입 가격 | 총 구매금액 입력 → 단위당 가격 자동 계산 |
+| 구입일 & 유통기한 | 날짜 선택 (유통기한은 선택 사항) |
+| 개수 단위 환산 | "1개 = 55g"처럼 개수와 중량을 연결해두면 식사 기록 시 개수로도 기록 가능 |
+| 메모 | 브랜드명, 구입처 등 자유 입력 |
+
+### 목록 및 필터
+
+- **검색**: 재료명 실시간 검색
+- **카테고리 필터**: 상단 탭으로 카테고리별 필터링
+- **소진됨 보기**: 소진된 재료만 모아볼 수 있는 토글
+- **뷰 전환**: 리스트 / 그리드 (2열) 선택 가능, 선택값은 기기에 저장
+
+### 잔량 상태
+
+등록 후 식사 기록 시 재료를 사용하면 잔량이 자동으로 차감됩니다.
+
+| 상태 | 기준 |
+|------|------|
+| 정상 | 잔량 50% 이상 |
+| 주의 | 잔량 25~50% |
+| 부족 | 잔량 25% 미만 |
+| 소진 | 잔량 0 |
+
+유통기한이 지난 재료는 빨간 테두리와 "만료" 배지로 강조됩니다.
+
+---
+
+## 식사 기록
+
+### 새 식사 기록
+
+우측 하단 **+** 버튼으로 식사를 기록합니다.
+
+1. **날짜 & 시간** 선택
+2. **종류 선택**
+   - 🍳 **해먹기**: 등록된 식재료를 선택해 재료별 비용을 자동 계산
+   - 🛵 **배달/외식**: 금액을 직접 입력
+3. **메뉴명** 입력 (필수)
+4. **재료 추가** (해먹기 선택 시)
+   - 재료 드롭다운에서 선택 → 구매일·남은 양 자동 표시
+   - 단위 선택: 표준 단위(g, ml 등) 또는 표현 단위(한줌, 약간 등)
+   - 수량 입력 → `= ~₩xxx` 형태로 비용 즉시 표시
+   - 기록 저장 시 해당 재료의 잔량이 자동 차감
+5. **메모** (선택)
+
+> **표현 단위**: "한줌", "약간", "한스푼" 같은 단위를 선택하면 대략적인 양으로 자동 환산되며, "≈ 대략" 배지가 표시됩니다.
+
+### 날짜 이동
+
+식사기록 탭 상단의 **‹ ›** 버튼으로 날짜를 하루씩 이동할 수 있습니다. 오늘 이후로는 이동이 제한됩니다.
+
+> **하루 기준 시간**: 새벽 3시 이전에는 전날로 취급합니다. 예를 들어 새벽 2시에 야식을 먹으면 전날 날짜로 기록됩니다.
+
+### 식사 카드
+
+기록된 식사는 카드 형태로 표시됩니다.
+
+```
+🍳 된장찌개                          8,500원
+   13:00
+──────────────────────────────────────────
+  쌀        2컵      = ~1,376원
+  된장      20g      = ~200원
+──────────────────────────────────────────
+메모: 좀 짰다
+
+[영수증] [수정] [삭제]
+```
+
+- **영수증 버튼**: 해당 식사를 찢긴 영수증 디자인으로 미리보기
+- **수정 버튼**: 기록 수정 (재료 소비량 자동 복원 후 재차감)
+- **삭제 버튼**: 기록 삭제 (재료 잔량 자동 복원)
+
+---
+
+## 통계
+
+### 일별 차트
+
+- **7일 / 30일** 탭으로 기간을 선택합니다.
+- 막대 차트로 일별 식비를 시각화합니다. 오늘은 브랜드 색상으로 강조됩니다.
+- 점선으로 평균선이 표시되며, 하단에 평균·최대 식비가 나타납니다.
+
+### 주간·월간 비교
+
+- 이번 주/달과 지난 주/달의 지출을 나란히 비교합니다.
+- 증감 금액과 퍼센트를 함께 표시합니다.
+- 예산 대비 사용률도 진행 바로 확인할 수 있습니다.
+
+### 해먹기 vs 배달/외식
+
+- 주간·월간·전체 탭으로 기간을 선택합니다.
+- 스택 바로 비율을 시각화하고, 건수·합계·평균 단가를 비교합니다.
+- 해먹기가 더 저렴한 경우 1끼당 절약 금액을 메시지로 표시합니다.
+
+### 기간 영수증
+
+원하는 기간을 선택하면 해당 기간의 모든 식사를 찢긴 영수증 디자인으로 생성합니다.
+
+- 프리셋: 이번 주 / 이번 달
+- 직접 설정: 시작일 ~ 종료일 직접 입력
+- **이미지로 저장** 버튼으로 PNG 파일로 내보낼 수 있습니다.
+
+### TOP 5 식사
+
+비용이 높은 순으로 상위 5개 식사를 금·은·동 배지와 함께 표시합니다.
+
+---
+
+## 설정
+
+### 예산 설정
+
+- **월간 예산**을 입력하면 주간 예산이 자동 계산됩니다.
+- 홈과 통계 화면의 진행 바에 즉시 반영됩니다.
+
+### 단위 관리
+
+앱 기본 제공 단위 외에 커스텀 단위를 추가할 수 있습니다.
+
+**기본 단위**
+
+| 유형 | 단위 |
+|------|------|
+| 무게 | g, kg |
+| 용량 | ml, L, 컵(200ml) |
+| 개수 | 개, 장, 봉, 팩, 병, 캔 |
+
+**커스텀 단위 추가**: 단위명, 유형(무게/용량/개수), 기준값을 입력해 추가합니다.
+
+- 이미 재료에 사용 중인 단위는 삭제할 수 없습니다.
+- 기본 단위는 삭제할 수 없습니다.
+
+### 데이터 백업
+
+- **내보내기**: 모든 데이터를 JSON 파일로 저장합니다.
+  - 파일명: `hankki-backup-YYYY-MM-DD.json`
+- **가져오기**: 내보낸 JSON 파일을 불러와 데이터를 복원합니다.
+  - 기존 데이터는 덮어씌워지므로 주의하세요.
+
+---
+
+## 기술 스택
+
+| 항목 | 내용 |
+|------|------|
+| 프레임워크 | React 19 + TypeScript |
+| 빌드 | Vite |
+| 스타일 | Tailwind CSS |
+| 차트 | Recharts |
+| 이미지 저장 | html-to-image |
+| 상태 관리 | React Context + useReducer |
+| 데이터 저장 | localStorage |
+| 배포 형태 | PWA (Progressive Web App) |
+
+---
+
+## 로컬 실행
+
+```bash
+npm install
+npm run dev
+```
+
+빌드:
+
+```bash
+npm run build
 ```
