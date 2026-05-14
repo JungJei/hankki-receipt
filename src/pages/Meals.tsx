@@ -81,7 +81,7 @@ function MealForm({
     if (ingredients.length === 0) return;
     setForm((f) => ({
       ...f,
-      items: [...f.items, { ingredientId: ingredients[0].id, amount: '', unit: ingredients[0].unit }],
+      items: [...f.items, { ingredientId: ingredients[0].id, amount: '', unit: ingredients[0].unitConversion?.unit ?? ingredients[0].unit }],
     }));
   }
 
@@ -95,7 +95,7 @@ function MealForm({
       items[i] = { ...items[i], [key]: val };
       if (key === 'ingredientId') {
         const ing = ingredients.find((ig) => ig.id === val);
-        if (ing) items[i].unit = ing.unit;
+        if (ing) items[i].unit = ing.unitConversion?.unit ?? ing.unit;
       }
       return { ...f, items };
     });
@@ -258,19 +258,19 @@ function MealForm({
                           value={item.unit}
                           onChange={(e) => updateItem(i, 'unit', e.target.value)}
                         >
+                          {selIng?.unitConversion && (
+                            <optgroup label="⭐ 개수 단위">
+                              <option value={selIng.unitConversion.unit}>
+                                {selIng.unitConversion.unit} (1{selIng.unitConversion.unit}={selIng.unitConversion.amount}{selIng.unit})
+                              </option>
+                            </optgroup>
+                          )}
                           <optgroup label="표준 단위">
                             {STANDARD_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                           </optgroup>
                           <optgroup label="표현 단위">
                             {CASUAL_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                           </optgroup>
-                          {selIng?.unitConversion && (
-                            <optgroup label="개수 단위">
-                              <option value={selIng.unitConversion.unit}>
-                                {selIng.unitConversion.unit} (1{selIng.unitConversion.unit}={selIng.unitConversion.amount}{selIng.unit})
-                              </option>
-                            </optgroup>
-                          )}
                         </select>
                       );
                     })()}
