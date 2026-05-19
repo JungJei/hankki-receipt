@@ -40,10 +40,12 @@ function getMealSortKey(meal: MealRecord): string {
 
 function MealForm({
   initialData,
+  defaultDate,
   onSave,
   onCancel,
 }: {
   initialData?: MealRecord;
+  defaultDate?: string;
   onSave: (data: MealFormData) => void;
   onCancel: () => void;
 }) {
@@ -65,7 +67,7 @@ function MealForm({
       };
     }
     return {
-      date: getTodayString(),
+      date: defaultDate ?? getTodayString(),
       time: getNowTime(),
       mealKind: 'homemade',
       menuName: '',
@@ -698,6 +700,7 @@ export default function Meals() {
       >
         <MealForm
           initialData={editMeal ?? undefined}
+          defaultDate={editMeal ? undefined : viewDate}
           onSave={handleSave}
           onCancel={() => { setShowForm(false); setEditMeal(null); }}
         />
