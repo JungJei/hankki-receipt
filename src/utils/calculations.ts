@@ -134,7 +134,10 @@ export function groupMealsByDate(meals: MealRecord[]): { date: string; meals: Me
     if (!map.has(meal.date)) map.set(meal.date, []);
     map.get(meal.date)!.push(meal);
   }
-  return Array.from(map.entries()).map(([date, meals]) => ({ date, meals }));
+  return Array.from(map.entries()).map(([date, meals]) => ({
+    date,
+    meals: meals.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '')),
+  }));
 }
 
 export function formatDateKo(dateStr: string): string {
