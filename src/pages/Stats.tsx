@@ -488,6 +488,7 @@ export default function Stats() {
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('week');
   const [customFrom, setCustomFrom] = useState(today);
   const [customTo, setCustomTo]   = useState(today);
+  const [rankTab, setRankTab] = useState<'month' | 'all'>('month');
 
   const weeklyTotal  = getWeeklyTotal(meals, today);
   const monthlyTotal = getMonthlyTotal(meals, today);
@@ -632,21 +633,39 @@ export default function Stats() {
 
       {/* TOP 5 */}
       {meals.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 shadow-receipt">
-          <div className="text-sm font-semibold text-gray-700 mb-3">비용이 높은 식사 TOP 5</div>
-          <div className="space-y-2">
-            {[...meals].sort((a, b) => b.totalCost - a.totalCost).slice(0, 5).map((meal, i) => (
-              <div key={meal.id} className="flex items-center gap-3">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'
-                }`}>{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-700 truncate">{meal.menuName}</div>
-                  <div className="text-xs text-gray-400">{meal.date}</div>
+        <div className="bg-white rounded-2xl shadow-receipt overflow-hidden">
+          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-receipt-border">
+            <span className="text-sm font-semibold text-gray-700">비용이 높은 식사 TOP 5</span>
+            <div className="flex rounded-lg border border-receipt-border overflow-hidden text-xs">
+              {([['month', '이번 달'], ['all', '전체']] as ['month' | 'all', string][]).map(([t, l]) => (
+                <button key={t} onClick={() => setRankTab(t)}
+                  className={`px-2.5 py-1.5 font-medium transition-colors ${rankTab === t ? 'bg-brand-500 text-white' : 'bg-white text-gray-600'}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-4 space-y-2">
+            {(() => {
+              const { from, to } = getMonthRange(today);
+              const filtered = rankTab === 'month' ? meals.filter((m) => m.date >= from && m.date <= to) : meals;
+              const top5 = [...filtered].sort((a, b) => b.totalCost - a.totalCost).slice(0, 5);
+              if (top5.length === 0) return (
+                <div className="text-center text-xs text-gray-400 py-4">이번 달 기록이 없어요</div>
+              );
+              return top5.map((meal, i) => (
+                <div key={meal.id} className="flex items-center gap-3">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                    i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'
+                  }`}>{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-700 truncate">{meal.menuName}</div>
+                    <div className="text-xs text-gray-400">{formatDateKo(meal.date)}</div>
+                  </div>
+                  <div className="text-sm font-bold font-receipt text-brand-500 shrink-0">{formatCurrency(meal.totalCost)}</div>
                 </div>
-                <div className="text-sm font-bold font-receipt text-brand-500">{formatCurrency(meal.totalCost)}</div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       )}

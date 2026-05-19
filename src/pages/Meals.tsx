@@ -75,7 +75,7 @@ function MealForm({
     };
   });
 
-  const ingredients = state.ingredients;
+  const ingredients = state.ingredients.filter((ig) => ig.remainingQuantity > 0);
 
   function addItem() {
     if (ingredients.length === 0) return;
