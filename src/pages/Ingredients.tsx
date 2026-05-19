@@ -323,10 +323,12 @@ function IngredientGridCard({
   ingredient,
   onEdit,
   onDelete,
+  onExpire,
 }: {
   ingredient: Ingredient;
   onEdit: () => void;
   onDelete: () => void;
+  onExpire: () => void;
 }) {
   const remaining = ingredient.remainingQuantity;
   const total = ingredient.totalQuantity;
@@ -364,6 +366,14 @@ function IngredientGridCard({
           style={{ width: `${ratio * 100}%` }}
         />
       </div>
+      {isExpired && remaining > 0 && (
+        <button
+          onClick={onExpire}
+          className="mt-2 w-full py-1 rounded-lg bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
+        >
+          소진 처리
+        </button>
+      )}
     </div>
   );
 }
@@ -372,10 +382,12 @@ function IngredientCard({
   ingredient,
   onEdit,
   onDelete,
+  onExpire,
 }: {
   ingredient: Ingredient;
   onEdit: () => void;
   onDelete: () => void;
+  onExpire: () => void;
 }) {
   const remaining = ingredient.remainingQuantity;
   const total = ingredient.totalQuantity;
@@ -442,6 +454,14 @@ function IngredientCard({
               <span>{ingredient.expiryDate} 까지</span>
             )}
           </div>
+          {isExpired && remaining > 0 && (
+            <button
+              onClick={onExpire}
+              className="mt-2 w-full py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-medium hover:bg-red-100 transition-colors"
+            >
+              소진 처리
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5 shrink-0">
@@ -483,12 +503,29 @@ export default function Ingredients() {
 
   const emptyCount = state.ingredients.filter((i) => i.remainingQuantity <= 0).length;
 
-  const filtered = state.ingredients.filter((ing) => {
-    if (!showEmpty && ing.remainingQuantity <= 0) return false;
-    const matchCat = catFilter === '전체' || ing.category === catFilter;
-    const matchSearch = ing.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filtered = state.ingredients
+    .filter((ing) => {
+      if (!showEmpty && ing.remainingQuantity <= 0) return false;
+      const matchCat = catFilter === '전체' || ing.category === catFilter;
+      const matchSearch = ing.name.toLowerCase().includes(search.toLowerCase());
+      return matchCat && matchSearch;
+    })
+    .sort((a, b) => {
+      const today = getTodayString();
+      const aExpired = !!(a.expiryDate && a.expiryDate < today);
+      const bExpired = !!(b.expiryDate && b.expiryDate < today);
+      // 만료된 것 최상단
+      if (aExpired && !bExpired) return -1;
+      if (!aExpired && bExpired) return 1;
+      // 둘 다 만료: 날짜 오래된 순
+      if (aExpired && bExpired) return a.expiryDate!.localeCompare(b.expiryDate!);
+      // 유통기한 있는 것 우선, 임박 순
+      if (a.expiryDate && !b.expiryDate) return -1;
+      if (!a.expiryDate && b.expiryDate) return 1;
+      if (a.expiryDate && b.expiryDate) return a.expiryDate.localeCompare(b.expiryDate);
+      // 유통기한 없으면 등록 순 유지
+      return 0;
+    });
 
   function handleSave(data: IngredientFormData) {
     const convAmt = parseFloat(data.conversionAmount);
@@ -601,6 +638,7 @@ export default function Ingredients() {
               ingredient={ing}
               onEdit={() => { setEditTarget(ing); setShowForm(true); }}
               onDelete={() => handleDelete(ing.id)}
+              onExpire={() => dispatch({ type: 'UPDATE_INGREDIENT', payload: { ...ing, remainingQuantity: 0 } })}
             />
           ))}
         </div>
@@ -612,6 +650,7 @@ export default function Ingredients() {
               ingredient={ing}
               onEdit={() => { setEditTarget(ing); setShowForm(true); }}
               onDelete={() => handleDelete(ing.id)}
+              onExpire={() => dispatch({ type: 'UPDATE_INGREDIENT', payload: { ...ing, remainingQuantity: 0 } })}
             />
           ))}
         </div>
