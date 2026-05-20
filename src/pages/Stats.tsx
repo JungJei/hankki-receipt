@@ -119,7 +119,8 @@ function PeriodCompareCard({
 // ── 기간 영수증 ───────────────────────────────────────────────
 const PR_FONT  = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
 const PR_MONO  = '"Courier New", Courier, monospace';
-const PR_W     = 288; // px — max-w-xs 고정폭 (html2canvas 일관성)
+const PR_W     = 288; // 영수증형 고정폭
+const PR_W_CARD = 272; // 카드형 내부 영수증 폭
 
 function PeriodReceipt({
   meals, from, to, label, budget,
@@ -129,6 +130,9 @@ function PeriodReceipt({
   budget?: number;
 }) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const cardRef    = useRef<HTMLDivElement>(null);
+  const [saveFormat, setSaveFormat] = useState<'receipt' | 'card'>('receipt');
+
   const rangeMeals = getMealsByDateRange(meals, from, to);
   const groups     = groupMealsByDate(rangeMeals);
   const total      = rangeMeals.reduce((s, m) => s + m.totalCost, 0);
@@ -136,10 +140,11 @@ function PeriodReceipt({
   const hasBudget  = (budget ?? 0) > 0;
 
   async function handleDownload() {
-    if (!receiptRef.current) return;
+    const ref = saveFormat === 'card' ? cardRef : receiptRef;
+    if (!ref.current) return;
     try {
       const { toPng } = await import('html-to-image');
-      const dataUrl = await toPng(receiptRef.current, { pixelRatio: 2, cacheBust: true });
+      const dataUrl = await toPng(ref.current, { pixelRatio: 2, cacheBust: true });
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = `한끼영수증_${label}_${from}~${to}.png`;
@@ -155,154 +160,238 @@ function PeriodReceipt({
     );
   }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-      {/* ── 영수증 본체 ── */}
-      <div
-        ref={receiptRef}
-        style={{ width: PR_W, backgroundColor: '#FEFDFB', fontFamily: PR_FONT }}
-      >
-        {/* 찢긴 윗면 */}
-        <div style={{
-          width: '100%', height: 20,
-          background: [
-            'linear-gradient(135deg,#F8F4EF 33.33%,transparent 33.33%) -14px 0',
-            'linear-gradient(225deg,#F8F4EF 33.33%,transparent 33.33%) -14px 0',
-            'linear-gradient(315deg,#F8F4EF 33.33%,transparent 33.33%)',
-            'linear-gradient( 45deg,#F8F4EF 33.33%,transparent 33.33%)',
-          ].join(', '),
-          backgroundSize: '28px 20px',
-          backgroundColor: '#FEFDFB',
-        }} />
-
-        <div style={{ padding: '0 24px' }}>
-
-          {/* 헤더 */}
-          <div style={{ textAlign: 'center', padding: '18px 0 10px' }}>
-            <div style={{ fontSize: 10, letterSpacing: '0.28em', color: '#9CA3AF', marginBottom: 6 }}>
-              ✦ HANKKI RECEIPT ✦
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
-              한끼 영수증
-            </div>
+  // ── 날짜별 내역 공통 JSX ─────────────────────────────────────
+  function renderMealRows(fontSize: number, indent: number) {
+    return groups.map(({ date, meals: dayMeals }) => {
+      const dayTotal = dayMeals.reduce((s, m) => s + m.totalCost, 0);
+      return (
+        <div key={date} style={{ marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <span style={{ fontSize, fontWeight: 700, color: '#374151' }}>{formatDateKo(date)}</span>
+            <span style={{ fontSize, fontWeight: 700, color: '#374151', fontFamily: PR_MONO }}>{formatCurrency(dayTotal)}</span>
           </div>
-
-          {/* 구분선 */}
-          <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '4px 0 10px' }} />
-
-          {/* 기간 */}
-          <div style={{ textAlign: 'center', padding: '2px 0 10px' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{label}</div>
-            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 3, fontFamily: PR_MONO }}>
-              {from} ~ {to}
-            </div>
-          </div>
-
-          {/* 구분선 */}
-          <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '0 0 10px' }} />
-
-          {/* 날짜별 내역 */}
-          {groups.map(({ date, meals: dayMeals }) => {
-            const dayTotal = dayMeals.reduce((s, m) => s + m.totalCost, 0);
+          {dayMeals.map((meal, i) => {
+            const emoji = meal.mealKind === 'delivery' ? '🛵' : meal.time ? '🍳' : (MEAL_TYPE_EMOJI[meal.mealType ?? 'lunch'] ?? '🍽️');
             return (
-              <div key={date} style={{ marginBottom: 10 }}>
-                {/* 날짜 행 */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>{formatDateKo(date)}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151', fontFamily: PR_MONO }}>
-                    {formatCurrency(dayTotal)}
-                  </span>
-                </div>
-                {/* 식사 목록 */}
-                {dayMeals.map((meal, i) => {
-                  const emoji = meal.mealKind === 'delivery' ? '🛵' : meal.time ? '🍳' : (MEAL_TYPE_EMOJI[meal.mealType ?? 'lunch'] ?? '🍽️');
-                  return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '2px 0 2px 10px' }}>
-                      <span style={{ fontSize: 12, color: '#6B7280', flex: 1, marginRight: 8, wordBreak: 'keep-all' }}>
-                        {emoji} {meal.menuName}
-                      </span>
-                      <span style={{ fontSize: 12, color: '#6B7280', fontFamily: PR_MONO, flexShrink: 0 }}>
-                        {meal.ingredients.some(ig => ig.isApprox) ? '≈' : ''}{formatCurrency(meal.totalCost)}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: `2px 0 2px ${indent}px` }}>
+                <span style={{ fontSize, color: '#6B7280', flex: 1, marginRight: 8, wordBreak: 'keep-all' }}>
+                  {emoji} {meal.menuName}
+                </span>
+                <span style={{ fontSize, color: '#6B7280', fontFamily: PR_MONO, flexShrink: 0 }}>
+                  {meal.ingredients.some(ig => ig.isApprox) ? '≈' : ''}{formatCurrency(meal.totalCost)}
+                </span>
               </div>
             );
           })}
+        </div>
+      );
+    });
+  }
 
-          {/* 소계 구분선 */}
-          <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '6px 0 8px' }} />
+  // ── 바코드 공통 JSX ──────────────────────────────────────────
+  function renderBarcode(height: number) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 1.5, marginBottom: 8 }} aria-hidden>
+        {Array.from({ length: 36 }).map((_, i) => (
+          <div key={i} style={{
+            backgroundColor: '#1F2937',
+            width: i % 5 === 0 ? 3.5 : i % 3 === 0 ? 2.5 : 1.5,
+            height,
+            borderRadius: 1,
+          }} />
+        ))}
+      </div>
+    );
+  }
 
-          {/* 합계 */}
-          <div style={{ padding: '4px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>합계</span>
-              <span style={{ fontFamily: PR_MONO, fontWeight: 800, fontSize: 20, color: '#E8572A' }}>
-                {hasApprox ? '≈ ' : ''}{formatCurrency(total)}
-              </span>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+
+      {/* ── 포맷 토글 ── */}
+      <div className="flex rounded-xl border border-receipt-border overflow-hidden text-xs">
+        {([['receipt', '🧾 영수증형'], ['card', '📸 인스타형']] as [typeof saveFormat, string][]).map(([f, l]) => (
+          <button key={f} onClick={() => setSaveFormat(f)}
+            className={`px-4 py-2 font-medium transition-colors ${saveFormat === f ? 'bg-brand-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════════════════════════════════
+          영수증형 — 기존 좁고 긴 영수증 그대로
+      ══════════════════════════════════════════ */}
+      {saveFormat === 'receipt' && (
+        <div ref={receiptRef} style={{ width: PR_W, backgroundColor: '#FEFDFB', fontFamily: PR_FONT }}>
+          {/* 찢긴 윗면 */}
+          <div style={{
+            width: '100%', height: 20,
+            background: [
+              'linear-gradient(135deg,#F8F4EF 33.33%,transparent 33.33%) -14px 0',
+              'linear-gradient(225deg,#F8F4EF 33.33%,transparent 33.33%) -14px 0',
+              'linear-gradient(315deg,#F8F4EF 33.33%,transparent 33.33%)',
+              'linear-gradient( 45deg,#F8F4EF 33.33%,transparent 33.33%)',
+            ].join(', '),
+            backgroundSize: '28px 20px',
+            backgroundColor: '#FEFDFB',
+          }} />
+
+          <div style={{ padding: '0 24px' }}>
+            {/* 헤더 */}
+            <div style={{ textAlign: 'center', padding: '18px 0 10px' }}>
+              <div style={{ fontSize: 10, letterSpacing: '0.28em', color: '#9CA3AF', marginBottom: 6 }}>✦ HANKKI RECEIPT ✦</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.01em', lineHeight: 1.2 }}>한끼 영수증</div>
             </div>
-            {hasBudget && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12, color: '#6B7280' }}>
-                <span>예산</span>
-                <span style={{ fontFamily: PR_MONO }}>{formatCurrency(budget!)}</span>
-              </div>
-            )}
-            {hasBudget && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 12 }}>
-                <span style={{ color: '#6B7280' }}>차액</span>
-                <span style={{ fontFamily: PR_MONO, fontWeight: 700, color: total > budget! ? '#EF4444' : '#16A34A' }}>
-                  {total > budget! ? '+' : ''}{formatCurrency(total - budget!)}
+            <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '4px 0 10px' }} />
+            {/* 기간 */}
+            <div style={{ textAlign: 'center', padding: '2px 0 10px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{label}</div>
+              <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 3, fontFamily: PR_MONO }}>{from} ~ {to}</div>
+            </div>
+            <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '0 0 10px' }} />
+            {/* 내역 */}
+            {renderMealRows(12, 10)}
+            <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '6px 0 8px' }} />
+            {/* 합계 */}
+            <div style={{ padding: '4px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>합계</span>
+                <span style={{ fontFamily: PR_MONO, fontWeight: 800, fontSize: 20, color: '#E8572A' }}>
+                  {hasApprox ? '≈ ' : ''}{formatCurrency(total)}
                 </span>
               </div>
-            )}
-          </div>
-
-          {hasApprox && (
-            <div style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center', marginTop: 4 }}>
-              ※ 일부 재료는 대략적인 금액입니다
+              {hasBudget && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12, color: '#6B7280' }}>
+                  <span>예산</span><span style={{ fontFamily: PR_MONO }}>{formatCurrency(budget!)}</span>
+                </div>
+              )}
+              {hasBudget && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 12 }}>
+                  <span style={{ color: '#6B7280' }}>차액</span>
+                  <span style={{ fontFamily: PR_MONO, fontWeight: 700, color: total > budget! ? '#EF4444' : '#16A34A' }}>
+                    {total > budget! ? '+' : ''}{formatCurrency(total - budget!)}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* 이중선 */}
-          <div style={{ borderTop: '3px double #374151', margin: '8px 0 16px' }} />
-
-          {/* 푸터 */}
-          <div style={{ textAlign: 'center', paddingBottom: 20 }}>
-            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>
-              {rangeMeals.length}끼 · {groups.length}일 기록
-            </div>
-            {/* 바코드 */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 1.5, marginBottom: 8 }} aria-hidden>
-              {Array.from({ length: 36 }).map((_, i) => (
-                <div key={i} style={{
-                  backgroundColor: '#1F2937',
-                  width: i % 5 === 0 ? 3.5 : i % 3 === 0 ? 2.5 : 1.5,
-                  height: 36,
-                  borderRadius: 1,
-                }} />
-              ))}
-            </div>
-            <div style={{ fontSize: 10, color: '#9CA3AF', letterSpacing: '0.2em', marginTop: 6 }}>
-              한끼 영수증
+            {hasApprox && <div style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center', marginTop: 4 }}>※ 일부 재료는 대략적인 금액입니다</div>}
+            <div style={{ borderTop: '3px double #374151', margin: '8px 0 16px' }} />
+            {/* 푸터 */}
+            <div style={{ textAlign: 'center', paddingBottom: 20 }}>
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>{rangeMeals.length}끼 · {groups.length}일 기록</div>
+              {renderBarcode(36)}
+              <div style={{ fontSize: 10, color: '#9CA3AF', letterSpacing: '0.2em', marginTop: 6 }}>한끼 영수증</div>
             </div>
           </div>
 
+          {/* 찢긴 아랫면 */}
+          <div style={{
+            width: '100%', height: 20,
+            background: [
+              'linear-gradient(135deg,#FEFDFB 33.33%,transparent 33.33%) -14px 0',
+              'linear-gradient(225deg,#FEFDFB 33.33%,transparent 33.33%) -14px 0',
+              'linear-gradient(315deg,#FEFDFB 33.33%,transparent 33.33%)',
+              'linear-gradient( 45deg,#FEFDFB 33.33%,transparent 33.33%)',
+            ].join(', '),
+            backgroundSize: '28px 20px',
+            backgroundColor: '#F8F4EF',
+          }} />
         </div>
+      )}
 
-        {/* 찢긴 아랫면 */}
-        <div style={{
-          width: '100%', height: 20,
-          background: [
-            'linear-gradient(135deg,#FEFDFB 33.33%,transparent 33.33%) -14px 0',
-            'linear-gradient(225deg,#FEFDFB 33.33%,transparent 33.33%) -14px 0',
-            'linear-gradient(315deg,#FEFDFB 33.33%,transparent 33.33%)',
-            'linear-gradient( 45deg,#FEFDFB 33.33%,transparent 33.33%)',
-          ].join(', '),
-          backgroundSize: '28px 20px',
-          backgroundColor: '#F8F4EF',
-        }} />
-      </div>
+      {/* ══════════════════════════════════════════
+          인스타형 — 동일한 영수증을 4:5 배경 위에
+      ══════════════════════════════════════════ */}
+      {saveFormat === 'card' && (
+        <div
+          ref={cardRef}
+          style={{
+            width: 360,
+            minHeight: 450,          // 4:5 비율 기준
+            backgroundColor: '#F8F4EF',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '44px 36px',
+            fontFamily: PR_FONT,
+          }}
+        >
+          {/* 영수증 그대로 — 그림자만 추가 */}
+          <div style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07)' }}>
+            {/* 찢긴 윗면 */}
+            <div style={{
+              width: PR_W, height: 20,
+              background: [
+                'linear-gradient(135deg,#F8F4EF 33.33%,transparent 33.33%) -14px 0',
+                'linear-gradient(225deg,#F8F4EF 33.33%,transparent 33.33%) -14px 0',
+                'linear-gradient(315deg,#F8F4EF 33.33%,transparent 33.33%)',
+                'linear-gradient( 45deg,#F8F4EF 33.33%,transparent 33.33%)',
+              ].join(', '),
+              backgroundSize: '28px 20px',
+              backgroundColor: '#FEFDFB',
+            }} />
+            <div style={{ width: PR_W, backgroundColor: '#FEFDFB', padding: '0 24px' }}>
+              {/* 헤더 */}
+              <div style={{ textAlign: 'center', padding: '18px 0 10px' }}>
+                <div style={{ fontSize: 10, letterSpacing: '0.28em', color: '#9CA3AF', marginBottom: 6 }}>✦ HANKKI RECEIPT ✦</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.01em', lineHeight: 1.2 }}>한끼 영수증</div>
+              </div>
+              <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '4px 0 10px' }} />
+              {/* 기간 */}
+              <div style={{ textAlign: 'center', padding: '2px 0 10px' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{label}</div>
+                <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 3, fontFamily: PR_MONO }}>{from} ~ {to}</div>
+              </div>
+              <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '0 0 10px' }} />
+              {/* 내역 */}
+              {renderMealRows(12, 10)}
+              <div style={{ borderTop: '1.5px dashed #D1D5DB', margin: '6px 0 8px' }} />
+              {/* 합계 */}
+              <div style={{ padding: '4px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>합계</span>
+                  <span style={{ fontFamily: PR_MONO, fontWeight: 800, fontSize: 20, color: '#E8572A' }}>
+                    {hasApprox ? '≈ ' : ''}{formatCurrency(total)}
+                  </span>
+                </div>
+                {hasBudget && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12, color: '#6B7280' }}>
+                    <span>예산</span><span style={{ fontFamily: PR_MONO }}>{formatCurrency(budget!)}</span>
+                  </div>
+                )}
+                {hasBudget && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 12 }}>
+                    <span style={{ color: '#6B7280' }}>차액</span>
+                    <span style={{ fontFamily: PR_MONO, fontWeight: 700, color: total > budget! ? '#EF4444' : '#16A34A' }}>
+                      {total > budget! ? '+' : ''}{formatCurrency(total - budget!)}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {hasApprox && <div style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center', marginTop: 4 }}>※ 일부 재료는 대략적인 금액입니다</div>}
+              <div style={{ borderTop: '3px double #374151', margin: '8px 0 16px' }} />
+              {/* 푸터 */}
+              <div style={{ textAlign: 'center', paddingBottom: 20 }}>
+                <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>{rangeMeals.length}끼 · {groups.length}일 기록</div>
+                {renderBarcode(36)}
+                <div style={{ fontSize: 10, color: '#9CA3AF', letterSpacing: '0.2em', marginTop: 6 }}>한끼 영수증</div>
+              </div>
+            </div>
+            {/* 찢긴 아랫면 */}
+            <div style={{
+              width: PR_W, height: 20,
+              background: [
+                'linear-gradient(135deg,#FEFDFB 33.33%,transparent 33.33%) -14px 0',
+                'linear-gradient(225deg,#FEFDFB 33.33%,transparent 33.33%) -14px 0',
+                'linear-gradient(315deg,#FEFDFB 33.33%,transparent 33.33%)',
+                'linear-gradient( 45deg,#FEFDFB 33.33%,transparent 33.33%)',
+              ].join(', '),
+              backgroundSize: '28px 20px',
+              backgroundColor: '#F8F4EF',
+            }} />
+          </div>
+        </div>
+      )}
 
       <button
         onClick={handleDownload}
